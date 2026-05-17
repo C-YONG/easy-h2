@@ -3,8 +3,8 @@
 # easy-h2 — Three-tool heritability estimation for multiple variant types
 # 
 # Usage:
-#   easy-h2 single  <VCF> <pheno.csv> <SNP|INDEL|SV> [--out DIR] [--trait N]
-#   easy-h2 batch   <snp.vcf> <indel.vcf> <sv.vcf> <pheno.csv> [--out DIR]
+#   easy-h2 [--out DIR] single <VCF> <pheno.csv> <SNP|INDEL|SV>
+#   easy-h2 [--out DIR] batch <snp.vcf> <indel.vcf> <sv.vcf> <pheno.csv>
 #   easy-h2 install
 #
 # Phenotype CSV: FID, trait1, trait2, ... (header, NA=missing)
@@ -41,10 +41,10 @@ if [ "$CMD" = "help" ] || [ "$CMD" = "-h" ] || [ "$CMD" = "--help" ]; then
     cat << 'HELP'
 easy-h2 — Heritability estimation with GCTA + GEMMA + LDAK
 
-Commands:
-  single  <VCF> <pheno.csv> <SNP|INDEL|SV>  Single variant type
-  batch   <snp.vcf> <indel.vcf> <sv.vcf> <pheno.csv>  All three types
-  install                                   Download GCTA/GEMMA/LDAK
+Usage:
+  easy-h2 [--out DIR] [--trait N] single <VCF> <pheno.csv> <SNP|INDEL|SV>
+  easy-h2 [--out DIR] [--trait N] batch  <snp.vcf> <indel.vcf> <sv.vcf> <pheno.csv>
+  easy-h2 install
 
 Options:
   --out DIR       Output directory (default: ./easy-h2-out)
