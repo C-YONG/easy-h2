@@ -1,11 +1,11 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# hermes-h2 — Three-tool heritability estimation for multiple variant types
+# easy-h2 — Three-tool heritability estimation for multiple variant types
 # 
 # Usage:
-#   hermes-h2 single  <VCF> <pheno.csv> <SNP|INDEL|SV> [--out DIR] [--trait N]
-#   hermes-h2 batch   <snp.vcf> <indel.vcf> <sv.vcf> <pheno.csv> [--out DIR]
-#   hermes-h2 install
+#   easy-h2 single  <VCF> <pheno.csv> <SNP|INDEL|SV> [--out DIR] [--trait N]
+#   easy-h2 batch   <snp.vcf> <indel.vcf> <sv.vcf> <pheno.csv> [--out DIR]
+#   easy-h2 install
 #
 # Phenotype CSV: FID, trait1, trait2, ... (header, NA=missing)
 # ═══════════════════════════════════════════════════════════════
@@ -20,7 +20,7 @@ CMD="${1:-help}"
 shift 2>/dev/null || true
 
 # Defaults
-OUTDIR="./hermes-h2-out"
+OUTDIR="./easy-h2-out"
 TRAIT_COL=1   # first trait column (0-indexed after FID)
 MAF_SNP=0.05; GENO_SNP=0.05
 MAF_INDEL=0.05; GENO_INDEL=0.05
@@ -39,7 +39,7 @@ done
 # ── help (no tools needed) ──
 if [ "$CMD" = "help" ] || [ "$CMD" = "-h" ] || [ "$CMD" = "--help" ]; then
     cat << 'HELP'
-hermes-h2 — Heritability estimation with GCTA + GEMMA + LDAK
+easy-h2 — Heritability estimation with GCTA + GEMMA + LDAK
 
 Commands:
   single  <VCF> <pheno.csv> <SNP|INDEL|SV>  Single variant type
@@ -47,7 +47,7 @@ Commands:
   install                                   Download GCTA/GEMMA/LDAK
 
 Options:
-  --out DIR       Output directory (default: ./hermes-h2-out)
+  --out DIR       Output directory (default: ./easy-h2-out)
   --trait N       Trait column in CSV (0=FID, 1=first trait, default: 1)
 
 Phenotype CSV format:
@@ -69,7 +69,7 @@ find_tool() {
     for p in "$BINDIR/$1" "$(which "$1" 2>/dev/null)" "$SCRIPT_DIR/$1"; do
         if [ -x "$p" ]; then echo "$p"; return 0; fi
     done
-    echo "ERROR: $1 not found. Run 'hermes-h2 install' first." >&2
+    echo "ERROR: $1 not found. Run 'easy-h2 install' first." >&2
     exit 1
 }
 
@@ -95,7 +95,7 @@ fi
 # ── batch ──
 if [ "$CMD" = "batch" ]; then
     SNP_VCF="$1"; INDEL_VCF="$2"; SV_VCF="$3"; PHENO="$4"
-    echo "═══ hermes-h2 batch ═══"
+    echo "═══ easy-h2 batch ═══"
     bash "$SCRIPT_DIR/lib/run_one.sh" "$SNP_VCF"   "$PHENO" SNP   "$OUTDIR" "$TRAIT_COL" "$GCTA" "$GEMMA" "$LDAK" "$MAF_SNP" "$GENO_SNP" "$MAF_INDEL" "$GENO_INDEL" "$MAF_SV" "$GENO_SV"
     bash "$SCRIPT_DIR/lib/run_one.sh" "$INDEL_VCF" "$PHENO" INDEL "$OUTDIR" "$TRAIT_COL" "$GCTA" "$GEMMA" "$LDAK" "$MAF_SNP" "$GENO_SNP" "$MAF_INDEL" "$GENO_INDEL" "$MAF_SV" "$GENO_SV"
     bash "$SCRIPT_DIR/lib/run_one.sh" "$SV_VCF"    "$PHENO" SV    "$OUTDIR" "$TRAIT_COL" "$GCTA" "$GEMMA" "$LDAK" "$MAF_SNP" "$GENO_SNP" "$MAF_INDEL" "$GENO_INDEL" "$MAF_SV" "$GENO_SV"
@@ -104,5 +104,5 @@ if [ "$CMD" = "batch" ]; then
     exit 0
 fi
 
-echo "Unknown command: $CMD. Try 'hermes-h2 help'."
+echo "Unknown command: $CMD. Try 'easy-h2 help'."
 exit 1
