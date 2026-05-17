@@ -1,4 +1,4 @@
-# hermes-h2
+# easy-h2
 
 **Three-tool heritability estimation for SNP, INDEL, and SV.**
 
@@ -7,8 +7,8 @@ Estimates heritability using GCTA, GEMMA, and LDAK — three complementary metho
 ## Install
 
 ```bash
-git clone https://github.com/yourname/hermes-h2.git
-cd hermes-h2
+git clone https://github.com/yourname/easy-h2.git
+cd easy-h2
 bash install.sh          # Downloads GCTA, GEMMA, LDAK
 conda install -c bioconda bcftools plink2  # Prerequisites
 ```
@@ -17,10 +17,10 @@ conda install -c bioconda bcftools plink2  # Prerequisites
 
 ```bash
 # Single variant type
-./hermes-h2 single snp.vcf.gz pheno.csv SNP --out results/
+./easy-h2 single snp.vcf.gz pheno.csv SNP --out results/
 
 # All three types
-./hermes-h2 batch snp.vcf.gz indel.vcf.gz sv.vcf.gz pheno.csv --out results/
+./easy-h2 batch snp.vcf.gz indel.vcf.gz sv.vcf.gz pheno.csv --out results/
 ```
 
 ## Input
@@ -53,7 +53,7 @@ results/
 ## Options
 
 ```
---out DIR       Output directory (default: ./hermes-h2-out)
+--out DIR       Output directory (default: ./easy-h2-out)
 --trait N       Trait column (0-indexed after FID, default: 1)
 ```
 
@@ -79,7 +79,7 @@ Required via conda/apt:
 
 ## Cite
 
-If you use hermes-h2, please cite the underlying tools:
+If you use easy-h2, please cite the underlying tools:
 - Yang et al. (2011) GCTA. *AJHG*
 - Zhou & Stephens (2012) GEMMA. *Nature Genetics*
 - Speed et al. (2017) LDAK. *Nature Genetics*

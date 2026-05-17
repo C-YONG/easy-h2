@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# hermes-h2/lib/run_one.sh — 单类型三软件遗传力
+# easy-h2/lib/run_one.sh — 单类型三软件遗传力
 # ═══════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -20,7 +20,7 @@ LOG="$OUTDIR/${LABEL}.log"
 exec > >(tee -a "$LOG") 2>&1
 
 echo "══════════════════════════════════════════════"
-echo "  hermes-h2 — $LABEL  |  $(date)"
+echo "  easy-h2 — $LABEL  |  $(date)"
 echo "  MAF>$MAF  missing<$GENO  trait_col=$TRAIT_COL"
 echo "══════════════════════════════════════════════"
 

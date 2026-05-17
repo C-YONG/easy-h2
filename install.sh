@@ -1,13 +1,13 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# hermes-h2/install.sh — 自动下载 GCTA/GEMMA/LDAK
+# easy-h2/install.sh — 自动下载 GCTA/GEMMA/LDAK
 # ═══════════════════════════════════════════════════════════════
 set -euo pipefail
 BINDIR="$(cd "$(dirname "$0")" && pwd)/bin"
 mkdir -p "$BINDIR"
 cd "$BINDIR"
 
-echo "═══ Installing hermes-h2 dependencies ═══"
+echo "═══ Installing easy-h2 dependencies ═══"
 
 # ── GCTA v1.94.1 ──
 if [ ! -f gcta64 ]; then

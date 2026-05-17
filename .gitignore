@@ -1,6 +1,6 @@
 bin/*
 !bin/.gitkeep
-hermes-h2-out/
+easy-h2-out/
 *.log
 __pycache__/
 *.pyc
