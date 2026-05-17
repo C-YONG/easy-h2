@@ -7,7 +7,7 @@ Estimates heritability using GCTA, GEMMA, and LDAK — three complementary metho
 ## Install
 
 ```bash
-git clone https://github.com/yourname/easy-h2.git
+git clone https://github.com/C-YONG/easy-h2.git
 cd easy-h2
 bash install.sh          # Downloads GCTA, GEMMA, LDAK
 conda install -c bioconda bcftools plink2  # Prerequisites
