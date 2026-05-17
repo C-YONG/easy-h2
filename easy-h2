@@ -16,25 +16,25 @@ BINDIR="$SCRIPT_DIR/bin"
 LIBDIR="$SCRIPT_DIR/lib"
 
 # ── Parse ──
-CMD="${1:-help}"
-shift 2>/dev/null || true
-
 # Defaults
 OUTDIR="./easy-h2-out"
-TRAIT_COL=1   # first trait column (0-indexed after FID)
+TRAIT_COL=1
 MAF_SNP=0.05; GENO_SNP=0.05
 MAF_INDEL=0.05; GENO_INDEL=0.05
 MAF_SV=0.01; GENO_SV=0.20
 
+# Parse flags (before command)
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --out) OUTDIR="$2"; shift 2;;
         --trait) TRAIT_COL="$2"; shift 2;;
-        --maf-snp) MAF_SNP="$2"; shift 2;;
-        --geno-snp) GENO_SNP="$2"; shift 2;;
+        -h|--help) CMD=help; shift;;
         *) break;;
     esac
 done
+
+CMD="${1:-help}"
+shift 2>/dev/null || true
 
 # ── help (no tools needed) ──
 if [ "$CMD" = "help" ] || [ "$CMD" = "-h" ] || [ "$CMD" = "--help" ]; then
