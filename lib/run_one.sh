@@ -15,8 +15,10 @@ case "$TYPE" in
     *) echo "ERROR: type must be SNP/INDEL/SV"; exit 1 ;;
 esac
 
-mkdir -p "$OUTDIR"/{filtered,plink,gcta,gemma,ldak}
-LOG="$OUTDIR/${LABEL}.log"
+# ── Per-type subdirectory (no overlap in batch mode) ──
+TDIR="$OUTDIR/$LABEL"
+mkdir -p "$TDIR"/{filtered,plink,gcta,gemma,ldak}
+LOG="$TDIR/${LABEL}.log"
 exec > >(tee -a "$LOG") 2>&1
 
 echo "══════════════════════════════════════════════"
@@ -24,79 +26,76 @@ echo "  easy-h2 — $LABEL  |  $(date)"
 echo "  MAF>$MAF  missing<$GENO  trait_col=$TRAIT_COL"
 echo "══════════════════════════════════════════════"
 
+ERRORS=0
+
 # ══ 1. Filter VCF ══
 echo "[1/6] Filtering VCF..."
-FILT_VCF="$OUTDIR/filtered/${LABEL}.filtered.vcf.gz"
-$BCFTOOLS view -i "F_MISSING < $GENO" -q ${MAF}:minor \
+FILT_VCF="$TDIR/filtered/${LABEL}.filtered.vcf.gz"
+$BCFTOOLS view -i "F_MISSING < $GENO" -q ${MAF}:minor -m2 -M2 \
     -Oz -o "$FILT_VCF" "$VCF" --threads 4
 $BCFTOOLS index -f "$FILT_VCF"
 
-# ══ 1.5. Ensure biallelic (quick check + fix if needed) ══
-# Most VCFs are already biallelic; split only if multiallelic detected
-echo "[1.5/6] Checking biallelic..."
-if $BCFTOOLS view -H "$FILT_VCF" 2>/dev/null | head -1000 | awk -F'\t' '$5~/,/' | head -1 | grep -q ","; then
-    echo "  Multiallelic detected, splitting..."
-    $BCFTOOLS norm -m-any "$FILT_VCF" -Oz -o "${FILT_VCF/.vcf.gz/.biallelic.vcf.gz}" 2>/dev/null
-    $BCFTOOLS index -f "${FILT_VCF/.vcf.gz/.biallelic.vcf.gz}"
-    FILT_VCF="${FILT_VCF/.vcf.gz/.biallelic.vcf.gz}"
-fi
-echo "  OK"
-
 # ══ 2. VCF → PLINK ══
 echo "[2/6] Converting to PLINK..."
-$PLINK --vcf "$FILT_VCF" --set-all-var-ids @:# \
-    --make-bed --out "$OUTDIR/plink/${LABEL}_tmp" --threads 4 --silent
+# Variant IDs: SNP use chr:pos:ref:alt, INDEL/SV use chr:pos (alleles too long)
+if [ "$TYPE" = "SNP" ]; then
+    ID_FMT="@:#:\$r:\$a"
+else
+    ID_FMT="@:#"
+fi
+$PLINK --vcf "$FILT_VCF" --set-all-var-ids $ID_FMT \
+    --allow-extra-chr \
+    --make-bed --out "$TDIR/plink/${LABEL}_tmp" --threads 4 --silent
 
 # Sort samples to match phenotype order
-python3 - "$PHENO_CSV" "$OUTDIR" << 'PYEOF'
+python3 - "$PHENO_CSV" "$TDIR" << 'PYEOF'
 import sys, csv
-pheno_csv, outdir = sys.argv[1], sys.argv[2]
+pheno_csv, tdir = sys.argv[1], sys.argv[2]
 with open(pheno_csv) as f:
     reader = csv.reader(f)
-    header = next(reader)
+    next(reader)
     ids = [row[0] for row in reader]
-with open(f"{outdir}/sample_order.txt", 'w') as f:
+with open(f"{tdir}/sample_order.txt", 'w') as f:
     for iid in ids:
         f.write(f"0 {iid}\n")
 PYEOF
 
-$PLINK --bfile "$OUTDIR/plink/${LABEL}_tmp" \
-    --keep "$OUTDIR/sample_order.txt" \
-    --indiv-sort f "$OUTDIR/sample_order.txt" \
-    --make-bed --out "$OUTDIR/plink/${LABEL}" --threads 4 --silent
+$PLINK --bfile "$TDIR/plink/${LABEL}_tmp" \
+    --keep "$TDIR/sample_order.txt" \
+    --indiv-sort f "$TDIR/sample_order.txt" \
+    --allow-extra-chr \
+    --make-bed --out "$TDIR/plink/${LABEL}" --threads 4 --silent
 
-rm -f "$OUTDIR"/plink/${LABEL}_tmp.* "$OUTDIR"/sample_order.txt
-N_VAR=$(wc -l < "$OUTDIR/plink/${LABEL}.bim")
-N_SAM=$(wc -l < "$OUTDIR/plink/${LABEL}.fam")
+rm -f "$TDIR"/plink/${LABEL}_tmp.* "$TDIR"/sample_order.txt
+N_VAR=$(wc -l < "$TDIR/plink/${LABEL}.bim")
+N_SAM=$(wc -l < "$TDIR/plink/${LABEL}.fam")
 echo "  $N_VAR variants × $N_SAM samples"
 
 # ══ 3. Phenotype ══
 echo "[3/6] Preparing phenotype..."
-python3 - "$PHENO_CSV" "$OUTDIR" "$LABEL" "$TRAIT_COL" << 'PYEOF'
+python3 - "$PHENO_CSV" "$TDIR" "$LABEL" "$TRAIT_COL" << 'PYEOF'
 import sys, csv
-pheno_csv, outdir, label, trait_col = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+pheno_csv, tdir, label, trait_col = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 
 fam_ids = []
-with open(f"{outdir}/plink/{label}.fam") as f:
+with open(f"{tdir}/plink/{label}.fam") as f:
     for l in f:
         fam_ids.append(l.strip().split()[1])
 
 with open(pheno_csv) as f:
     reader = csv.reader(f)
-    header = next(reader)
+    next(reader)
     phe_dict = {}
     for row in reader:
         if len(row) > trait_col and row[trait_col] != 'NA':
             phe_dict[row[0]] = row[trait_col]
 
-# GCTA/LDAK: FID=0, IID=id, trait, header, missing=-9
-with open(f"{outdir}/gcta/pheno.txt", 'w') as f:
+with open(f"{tdir}/gcta/pheno.txt", 'w') as f:
     f.write(f"FID IID {label}\n")
     for iid in fam_ids:
         f.write(f"0 {iid} {phe_dict.get(iid, '-9')}\n")
 
-# GEMMA: single column, matched to FAM order
-with open(f"{outdir}/gemma/pheno_single.txt", 'w') as f:
+with open(f"{tdir}/gemma/pheno_single.txt", 'w') as f:
     for iid in fam_ids:
         f.write(f"{phe_dict.get(iid, 'NA')}\n")
 
@@ -106,63 +105,61 @@ PYEOF
 
 # ══ 4. GCTA ══
 echo "[4/6] GCTA REML..."
-$GCTA --bfile "$OUTDIR/plink/${LABEL}" --make-grm-bin \
-    --out "$OUTDIR/gcta/grm" --threads 8 2>/dev/null || true
-$GCTA --reml --grm "$OUTDIR/gcta/grm" --pheno "$OUTDIR/gcta/pheno.txt" \
-    --out "$OUTDIR/gcta/h2" --threads 8 2>/dev/null || true
-
-if [ -f "$OUTDIR/gcta/h2.hsq" ]; then
-    GCTA_H2=$(grep "V(G)/Vp" "$OUTDIR/gcta/h2.hsq" | awk '{printf "%.4f", $2}')
-    GCTA_SE=$(grep "V(G)/Vp" "$OUTDIR/gcta/h2.hsq" | awk '{printf "%.4f", $3}')
+if $GCTA --bfile "$TDIR/plink/${LABEL}" --make-grm-bin \
+    --out "$TDIR/gcta/grm" --threads 8 2>"$TDIR/gcta/gcta_grm.err" && \
+   $GCTA --reml --grm "$TDIR/gcta/grm" --pheno "$TDIR/gcta/pheno.txt" \
+    --out "$TDIR/gcta/h2" --threads 8 2>"$TDIR/gcta/gcta_reml.err"; then
+    GCTA_H2=$(grep "V(G)/Vp" "$TDIR/gcta/h2.hsq" | awk '{printf "%.4f", $2}')
+    GCTA_SE=$(grep "V(G)/Vp" "$TDIR/gcta/h2.hsq" | awk '{printf "%.4f", $3}')
     echo "  GCTA: $GCTA_H2 ± $GCTA_SE"
 else
-    GCTA_H2="NA"; GCTA_SE="NA"; echo "  GCTA: FAILED"
+    GCTA_H2="NA"; GCTA_SE="NA"; ERRORS=$((ERRORS+1))
+    echo "  GCTA: FAILED (see $TDIR/gcta/gcta_*.err)"
 fi
 
 # ══ 5. GEMMA ══
 echo "[5/6] GEMMA REML..."
-awk '{$6=0; print}' OFS='\t' "$OUTDIR/plink/${LABEL}.fam" > "$OUTDIR/gemma/${LABEL}.fam"
-cp "$OUTDIR/plink/${LABEL}.bed" "$OUTDIR/gemma/${LABEL}.bed"
-cp "$OUTDIR/plink/${LABEL}.bim" "$OUTDIR/gemma/${LABEL}.bim"
+awk '{$6=0; print}' OFS='\t' "$TDIR/plink/${LABEL}.fam" > "$TDIR/gemma/${LABEL}.fam"
+cp "$TDIR/plink/${LABEL}.bed" "$TDIR/gemma/${LABEL}.bed"
+cp "$TDIR/plink/${LABEL}.bim" "$TDIR/gemma/${LABEL}.bim"
 
-cd "$OUTDIR/gemma"
-$GEMMA -bfile "${LABEL}" -gk 2 -o "${LABEL}_kin" 2>/dev/null || true
-
-GEMMA_OUT=$($GEMMA -bfile "${LABEL}" -k "output/${LABEL}_kin.sXX.txt" \
-    -lmm 1 -miss 1.0 -maf 0 -p pheno_single.txt -o "${LABEL}_h2" 2>/dev/null) || true
-
-GEMMA_H2=$(echo "$GEMMA_OUT" | grep "pve estimate" | awk -F'=' '{gsub(/ /,""); printf "%.4f", $2}')
-GEMMA_SE=$(echo "$GEMMA_OUT" | grep "se(pve)" | awk -F'=' '{gsub(/ /,""); printf "%.4f", $2}')
-if [ -n "$GEMMA_H2" ]; then
+cd "$TDIR/gemma"
+if $GEMMA -bfile "${LABEL}" -gk 2 -o "${LABEL}_kin" 2>gemma_kin.err; then
+    GEMMA_OUT=$($GEMMA -bfile "${LABEL}" -k "output/${LABEL}_kin.sXX.txt" \
+        -lmm 1 -miss 1.0 -maf 0 -p pheno_single.txt -o "${LABEL}_h2" 2>gemma_reml.err) || true
+    GEMMA_H2=$(echo "$GEMMA_OUT" | grep "pve estimate" | awk -F'=' '{gsub(/ /,""); printf "%.4f", $2}')
+    GEMMA_SE=$(echo "$GEMMA_OUT" | grep "se(pve)" | awk -F'=' '{gsub(/ /,""); printf "%.4f", $2}')
+fi
+if [ -n "${GEMMA_H2:-}" ]; then
     echo "  GEMMA: $GEMMA_H2 ± $GEMMA_SE"
 else
-    GEMMA_H2="NA"; GEMMA_SE="NA"; echo "  GEMMA: FAILED"
+    GEMMA_H2="NA"; GEMMA_SE="NA"; ERRORS=$((ERRORS+1))
+    echo "  GEMMA: FAILED (see $TDIR/gemma/gemma_*.err)"
 fi
 cd - > /dev/null
 
 # ══ 6. LDAK ══
 echo "[6/6] LDAK REML..."
-cp "$OUTDIR/plink/${LABEL}.bed" "$OUTDIR/ldak/${LABEL}.bed"
-cp "$OUTDIR/plink/${LABEL}.fam" "$OUTDIR/ldak/${LABEL}.fam"
+cp "$TDIR/plink/${LABEL}.bed" "$TDIR/ldak/${LABEL}.bed"
+cp "$TDIR/plink/${LABEL}.fam" "$TDIR/ldak/${LABEL}.fam"
 
 if [ "$TYPE" != "SNP" ]; then
     awk 'BEGIN{FS=OFS="\t"} {if(NF>=6){a1=substr($5,1,1);a2=substr($6,1,1);
         if(a1==a2){a1="A";a2="T"};$5=a1;$6=a2};print}' \
-        "$OUTDIR/plink/${LABEL}.bim" > "$OUTDIR/ldak/${LABEL}.bim"
+        "$TDIR/plink/${LABEL}.bim" > "$TDIR/ldak/${LABEL}.bim"
 else
-    cp "$OUTDIR/plink/${LABEL}.bim" "$OUTDIR/ldak/${LABEL}.bim"
+    cp "$TDIR/plink/${LABEL}.bim" "$TDIR/ldak/${LABEL}.bim"
 fi
 
-cd "$OUTDIR/ldak"
-$LDAK --calc-kins-direct "${LABEL}_kin" --bfile "${LABEL}" --power -0.25 2>/dev/null || true
-$LDAK --reml "${LABEL}_h2" --grm "${LABEL}_kin" --pheno ../gcta/pheno.txt 2>/dev/null || true
-
-if [ -f "${LABEL}_h2.reml" ]; then
+cd "$TDIR/ldak"
+if $LDAK --calc-kins-direct "${LABEL}_kin" --bfile "${LABEL}" --power -0.25 2>ldak_kin.err && \
+   $LDAK --reml "${LABEL}_h2" --grm "${LABEL}_kin" --pheno ../gcta/pheno.txt 2>ldak_reml.err; then
     LDAK_H2=$(grep "Her_K1" "${LABEL}_h2.reml" | awk '{printf "%.4f", $2}')
     LDAK_SE=$(grep "Her_K1" "${LABEL}_h2.reml" | awk '{printf "%.4f", $3}')
     echo "  LDAK: $LDAK_H2 ± $LDAK_SE"
 else
-    LDAK_H2="NA"; LDAK_SE="NA"; echo "  LDAK: FAILED"
+    LDAK_H2="NA"; LDAK_SE="NA"; ERRORS=$((ERRORS+1))
+    echo "  LDAK: FAILED (see $TDIR/ldak/ldak_*.err)"
 fi
 cd - > /dev/null
 
@@ -175,4 +172,7 @@ printf "${LABEL}\t${GCTA_H2}\t${GCTA_SE}\t${GEMMA_H2}\t${GEMMA_SE}\t${LDAK_H2}\t
 
 echo ""
 echo "═══ $LABEL: GCTA=$GCTA_H2 GEMMA=$GEMMA_H2 LDAK=$LDAK_H2 ═══"
+if [ $ERRORS -gt 0 ]; then
+    echo "WARNING: $ERRORS tool(s) failed — check *.err files"
+fi
 echo "Done: $(date)"

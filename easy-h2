@@ -96,6 +96,7 @@ fi
 if [ "$CMD" = "batch" ]; then
     SNP_VCF="$1"; INDEL_VCF="$2"; SV_VCF="$3"; PHENO="$4"
     echo "═══ easy-h2 batch ═══"
+echo "Output: $OUTDIR/{SNP,INDEL,SV}/ → summary.tsv"
     bash "$SCRIPT_DIR/lib/run_one.sh" "$SNP_VCF"   "$PHENO" SNP   "$OUTDIR" "$TRAIT_COL" "$GCTA" "$GEMMA" "$LDAK" "$MAF_SNP" "$GENO_SNP" "$MAF_INDEL" "$GENO_INDEL" "$MAF_SV" "$GENO_SV"
     bash "$SCRIPT_DIR/lib/run_one.sh" "$INDEL_VCF" "$PHENO" INDEL "$OUTDIR" "$TRAIT_COL" "$GCTA" "$GEMMA" "$LDAK" "$MAF_SNP" "$GENO_SNP" "$MAF_INDEL" "$GENO_INDEL" "$MAF_SV" "$GENO_SV"
     bash "$SCRIPT_DIR/lib/run_one.sh" "$SV_VCF"    "$PHENO" SV    "$OUTDIR" "$TRAIT_COL" "$GCTA" "$GEMMA" "$LDAK" "$MAF_SNP" "$GENO_SNP" "$MAF_INDEL" "$GENO_INDEL" "$MAF_SV" "$GENO_SV"

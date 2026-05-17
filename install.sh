@@ -14,8 +14,9 @@ if [ ! -f gcta64 ]; then
     echo "  Downloading GCTA..."
     curl -sLO "https://yanglab.westlake.edu.cn/software/gcta/bin/gcta-1.94.1-linux-kernel-4-x86_64.zip"
     unzip -qo gcta-1.94.1-linux-kernel-4-x86_64.zip
-    cp gcta-1.94.1-linux-kernel-4-x86_64/gcta64 . 2>/dev/null || \
-    cp gcta-1.94.1-linux-kernel-4-x86_64/gcta-1.94.1 . 2>/dev/null
+    # Find the binary: named gcta64 or gcta-1.94.1
+    GCTA_BIN=$(find gcta-1.94.1-linux-kernel-4-x86_64 -type f -name 'gcta*' ! -name '*.zip' | head -1)
+    cp "$GCTA_BIN" gcta64
     chmod +x gcta64
     rm -rf gcta-1.94.1* __MACOSX
     echo "  GCTA: $(./gcta64 2>&1 | head -1)"
