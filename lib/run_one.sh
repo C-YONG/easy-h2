@@ -31,18 +31,16 @@ $BCFTOOLS view -i "F_MISSING < $GENO" -q ${MAF}:minor \
     -Oz -o "$FILT_VCF" "$VCF" --threads 4
 $BCFTOOLS index -f "$FILT_VCF"
 
-# ══ 1.5. Split multiallelic (only if needed) ══
-if $BCFTOOLS view -h "$FILT_VCF" 2>/dev/null | grep -q "Number=A"; then
-    echo "[1.5/6] Splitting multiallelic variants..."
-    $BCFTOOLS norm -m-any "$FILT_VCF" > "${FILT_VCF/.vcf.gz/.biallelic.vcf}" 2>/dev/null
-    $BCFTOOLS view -m2 -M2 -Oz -o "${FILT_VCF/.vcf.gz/.biallelic.vcf.gz}" \
-        "${FILT_VCF/.vcf.gz/.biallelic.vcf}" 2>/dev/null
+# ══ 1.5. Ensure biallelic (quick check + fix if needed) ══
+# Most VCFs are already biallelic; split only if multiallelic detected
+echo "[1.5/6] Checking biallelic..."
+if $BCFTOOLS view -H "$FILT_VCF" 2>/dev/null | head -1000 | awk -F'\t' '$5~/,/' | head -1 | grep -q ","; then
+    echo "  Multiallelic detected, splitting..."
+    $BCFTOOLS norm -m-any "$FILT_VCF" -Oz -o "${FILT_VCF/.vcf.gz/.biallelic.vcf.gz}" 2>/dev/null
     $BCFTOOLS index -f "${FILT_VCF/.vcf.gz/.biallelic.vcf.gz}"
-    rm -f "${FILT_VCF/.vcf.gz/.biallelic.vcf}"
     FILT_VCF="${FILT_VCF/.vcf.gz/.biallelic.vcf.gz}"
-else
-    echo "[1.5/6] VCF already biallelic, skipping split"
 fi
+echo "  OK"
 
 # ══ 2. VCF → PLINK ══
 echo "[2/6] Converting to PLINK..."
