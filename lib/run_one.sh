@@ -83,7 +83,7 @@ with open(pheno_csv) as f:
     phe_dict = {}
     for row in reader:
         if len(row) > trait_col and row[trait_col] != 'NA':
-            phe_dict[row[0]] = row[trait_col + 1]
+            phe_dict[row[0]] = row[trait_col]
 
 # GCTA/LDAK: FID=0, IID=id, trait, header, missing=-9
 with open(f"{outdir}/gcta/pheno.txt", 'w') as f:
