@@ -1,0 +1,12 @@
+bin/*
+!bin/.gitkeep
+hermes-h2-out/
+*.log
+__pycache__/
+*.pyc
+filtered/
+plink/
+gcta/
+gemma/
+ldak/
+summary.tsv
